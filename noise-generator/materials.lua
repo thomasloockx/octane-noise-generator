@@ -27,8 +27,9 @@ local MATERIALS_DESCRIPTION =
 
         -- Generate function for the material. The function is expected to generate the material
         -- in the provided table based on the controls (table with the control parameters).
-        generate = function(t2d, controls)
-                        -- get the bitmap's dimensions
+        -- There's an optional progress callback to make the GUI responsive.
+        generate = function(t2d, controls, progressCallback)
+                        -- get the 2d table's dimensions
                         local w = t2d.width
                         local h = t2d.height
                         -- get the rectangle bounds in "noise space" based on the controls
@@ -40,8 +41,8 @@ local MATERIALS_DESCRIPTION =
                         local dy = (y1 - y0) / h
 
                         -- for each pixel of the bitmap generate the noise
-                        for xs=1,w do
-                            for ys=1,h do
+                        for ys=1,h do
+                            for xs=1,w do
                                 -- convert from screen space -> "noise space"
                                 local x = x0 + dx * (xs - 1)
                                 local y = y0 + dy * (ys - 1)
@@ -50,6 +51,9 @@ local MATERIALS_DESCRIPTION =
                                 -- colour the value in grayscale
                                 t2d:set(xs, ys, { n * 255, n * 255, n * 255, 255 })
                             end
+
+                            -- update on our current progress after we've finished a row
+                            if (progressCallback) then progressCallback(ys / h) end
                         end
                     end,
     }
@@ -64,10 +68,10 @@ local MATERIALS_DESCRIPTION =
         }                        ,
 
         -- Generates wood rings by mangling the Perlin noise through a sine function.
-        generate = function(t2d, controls)
-                        -- get the bitmap's dimensions
-                        local w     = t2d.width
-                        local h     = t2d.height
+        generate = function(t2d, controls, progressCallback)
+                        -- get the 2d table's dimensions
+                        local w = t2d.width
+                        local h = t2d.height
                          -- get the centre point of the view rectangle
                         local cx = controls["x-orig"] + controls["width"] * 0.5 
                         local cy = controls["y-orig"] + controls["height"] * 0.5
@@ -80,8 +84,8 @@ local MATERIALS_DESCRIPTION =
                         local dy = (y1 - y0) / h
 
                         -- for each pixel of the bitmap generate the noise
-                        for xs=1,w do
-                            for ys=1,h do
+                        for ys=1,h do
+                            for xs=1,w do
                                 -- convert from screen space -> "noise space"
                                 local x = x0 + dx * (xs - 1)
                                 local y = y0 + dy * (ys - 1)
@@ -96,6 +100,9 @@ local MATERIALS_DESCRIPTION =
                                 -- colour the pixel in grayscale
                                 t2d:set(xs, ys, { n * 255, n * 255, n * 255, 255 })
                             end
+
+                            -- update on our current progress after we've finished a row
+                            if (progressCallback) then progressCallback(ys / h) end
                         end
                     end,
     }
@@ -103,10 +110,31 @@ local MATERIALS_DESCRIPTION =
 }
 
 
-local function createNode(matInfo, controls, w, h)
+-- this can take several seconds so we report back on our progress
+local function createNode(matInfo, controls, w, h, progressBar)
+
+    progressBar.text = "generating noise..."
+
+    -- callback update function
+    local updateCount = 0
+    local onUpdate = function(progress)
+        progressBar.progress = progress
+        updateCount          = updateCount + 1
+        -- only dispatch so often
+        if math.fmod(updateCount, 50) == 0 then
+            octane.gui.dispatchGuiEvents(1)
+        end
+    end
+
     -- generate the noise output
     local out = table2d.create(w, h)
-    matInfo.generate(out, controls)
+    matInfo.generate(out, controls, onUpdate)
+
+    -- update progress
+    progressBar.text = "creating texture node..."
+    progressBar.progress     = -1
+    octane.gui.dispatchGuiEvents(1)
+
     -- TODO: this is inefficient as hell!
     local buf = {} 
     for i=1,w do
@@ -118,6 +146,7 @@ local function createNode(matInfo, controls, w, h)
             table.insert(buf, c[4])
         end
     end
+
     -- create an image texture node
     tex= octane.node.create{ type=octane.NT_TEX_IMAGE, name=matInfo.name }
     -- set up the attributes
@@ -125,6 +154,10 @@ local function createNode(matInfo, controls, w, h)
     tex:setAttribute(octane.A_SIZE  , { w , h }                 , false)
     tex:setAttribute(octane.A_TYPE  , octane.image.type.LDR_RGBA, false)
     tex:evaluate()
+
+    -- reset the progress bar again
+    progressBar.progress = 0
+    progressBar.text     = "" 
 end
 
 
@@ -170,7 +203,6 @@ local function genGui()
                 width  = 80,
                 height = 24,
             }
-            print(cvals.value)
             local slider = octane.gui.create
             {
                 name        = cvals.name,
@@ -216,11 +248,14 @@ local function genGui()
             end
         end
                 
+        -- make sure we generate the initial noise
+        reGen()
+
         -- Group with the noise control settings.
         local controlsGrp = octane.gui.create 
         {
             type     = octane.gui.componentType.GROUP,
-            rows     = #childComponents,
+            rows     = #childComponents/2,
             cols     = 2,
             text     = "Noise Controls",
             border   = true,
@@ -276,12 +311,14 @@ local function genGui()
             height  = 24,
             text    = "Export",
             tooltip = "exports the noise pattern to a float texture node",
-            callback = function()
-                exportProgress.progress = -1
-                exportProgress.text     = "exporting node "..info.name.."..."
-                createNode(info, getControls(), xResSlider.value, yResSlider.value)
-                exportProgress.text     = ""
-                exportProgress.progress = 0
+            callback = function(button)
+                -- disable the export button
+                button.enable = false
+
+                createNode(info, getControls(), xResSlider.value, yResSlider.value, exportProgress)
+
+                -- re-enable the export button
+                button.enable = true
             end
         }
         local exportGrp = octane.gui.create
@@ -290,6 +327,7 @@ local function genGui()
             rows     = 2,
             cols     = 2,
             border   = true,
+            text     = "Export Controls",
             children =
             { 
                 xResLbl, xResSlider,
