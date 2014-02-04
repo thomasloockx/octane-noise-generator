@@ -159,6 +159,13 @@ end
 
 -- Generates the user interface based on above materials.
 local function genGui()
+    -- Gui constants
+    local sliderWidth, sliderHeigt = 400, 20
+    local lblWidth   , lblHeight   = 80 , 24
+    local innerGrpPad              = 4
+    local innerGrpInset            = 5 
+    local outerGrpInset            = 5 
+
     local groups   = {} -- groups, 1 for each tab
     local captions = {} -- captions on top of each tab
     for i, info in ipairs(MATERIALS_DESCRIPTION) do
@@ -193,15 +200,15 @@ local function genGui()
             { 
                 type   = octane.gui.componentType.LABEL,
                 text   = cvals.name,
-                width  = 80,
-                height = 24,
+                width  = lblWidth,
+                height = lblHeight,
             }
             local slider = octane.gui.create
             {
                 name        = cvals.name,
                 type        = octane.gui.componentType.SLIDER,
-                width       = 400,
-                height      = 20,
+                width       = sliderWidth,
+                height      = sliderHeigt,
                 value       = cvals.value,
                 minValue    = cvals.min,
                 maxValue    = cvals.max,
@@ -253,7 +260,7 @@ local function genGui()
             text     = "Noise Controls",
             border   = true,
             children = childComponents,
-            inset    = { 5 },
+            inset    = { innerGrpInset },
         }
 
         -- Create the user interface for node creation.
@@ -261,14 +268,14 @@ local function genGui()
         { 
             type   = octane.gui.componentType.LABEL,
             text   = "x-resolution",
-            width  = 80,
-            height = 24,
+            width  = lblWidth,
+            height = lblHeight,
         }
         local xResSlider = octane.gui.create
         {
             type     = octane.gui.componentType.SLIDER,
-            width    = 400,
-            height   = 20,
+            width    = sliderWidth,
+            height   = sliderHeigt,
             value    = 512,
             minValue = 8,
             maxValue = 2048,
@@ -278,14 +285,14 @@ local function genGui()
         { 
             type   = octane.gui.componentType.LABEL,
             text   = "y-resolution",
-            width  = 80,
-            height = 24,
+            width  = lblWidth,
+            height = lblHeight,
         }
         local yResSlider = octane.gui.create
         {
             type     = octane.gui.componentType.SLIDER,
-            width    = 400,
-            height   = 20,
+            width    = sliderWidth,
+            height   = sliderHeigt,
             value    = 512,
             minValue = 8,
             maxValue = 2048,
@@ -294,7 +301,7 @@ local function genGui()
         local exportProgress = octane.gui.create
         {
             type     = octane.gui.componentType.PROGRESS_BAR,
-            width    = 240,
+            width    = PREVIEW_SIZE,
             height   = 20,
         }
         local exportButton = octane.gui.create
@@ -320,28 +327,41 @@ local function genGui()
             rows     = 2,
             cols     = 2,
             border   = true,
-            text     = "Export Controls",
+            text     = "Texture Resolution",
             children =
             { 
                 xResLbl, xResSlider,
                 yResLbl, yResSlider,
-            }
+            },
+            inset = { innerGrpInset },
+        }
+        local leftColGroup = octane.gui.create 
+        {
+            type     = octane.gui.componentType.GROUP,
+            rows     = 3,
+            cols     = 1,
+            border   = false,
+            children =
+            { 
+                info.preview,
+                exportProgress,
+                exportButton
+            },
+            inset   = { 5, 12 },
+            padding = { 0, 3, 0, 0},
         }
         local rightColGroup = octane.gui.create 
         {
             type     = octane.gui.componentType.GROUP,
-            rows     = 4,
+            rows     = 2,
             cols     = 1,
             border   = false,
             children =
             { 
                 controlsGrp,
                 exportGrp,
-                exportProgress,
-                exportButton
             },
-            inset    = { 10 },
-            padding  = { 5  },
+            inset = { outerGrpInset },
         }
         table.insert(groups, layoutGrp)
 
@@ -352,9 +372,7 @@ local function genGui()
             rows     = 1,
             cols     = 2,
             border   = false,
-            children = { info.preview , rightColGroup},
-            inset    = { 10 },
-            padding  = { 5  },
+            children = { leftColGroup,  rightColGroup},
         }
         table.insert(groups, layoutGrp)
     end  
