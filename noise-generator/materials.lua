@@ -11,6 +11,7 @@ local PREVIEW_SIZE = 128
 local MATERIALS_DESCRIPTION =
 {
     -- Perlin noise is the first one in this list. It's the "base" for all others
+    -- Copy over this one if you want to add your own material.
     {
         -- Name of the generated material, shown in the material tab.
         name = "Perlin Noise",
@@ -34,11 +35,9 @@ local MATERIALS_DESCRIPTION =
                         local h = t2d.height
                         -- get the rectangle bounds in "noise space" based on the controls
                         local x0 = controls["x-orig"]
-                        local x1 = x0 + controls["width"]
                         local y0 = controls["y-orig"]
-                        local y1 = y0 + controls["height"]
-                        local dx = (x1 - x0) / w 
-                        local dy = (y1 - y0) / h
+                        local dx = controls["width"] / w 
+                        local dy = controls["height"] / h
 
                         -- for each pixel of the bitmap generate the noise
                         for ys=1,h do
@@ -77,11 +76,9 @@ local MATERIALS_DESCRIPTION =
                         local cy = controls["y-orig"] + controls["height"] * 0.5
                         -- get the rectangle bounds in "noise space" based on the controls
                         local x0 = controls["x-orig"]
-                        local x1 = x0 + controls["width"]
                         local y0 = controls["y-orig"]
-                        local y1 = y0 + controls["height"]
-                        local dx = (x1 - x0) / w 
-                        local dy = (y1 - y0) / h
+                        local dx = controls["width"] / w 
+                        local dy = controls["height"] / h
 
                         -- for each pixel of the bitmap generate the noise
                         for ys=1,h do
@@ -112,7 +109,6 @@ local MATERIALS_DESCRIPTION =
 
 -- this can take several seconds so we report back on our progress
 local function createNode(matInfo, controls, w, h, progressBar)
-
     progressBar.text = "generating noise..."
 
     -- callback update function
@@ -131,28 +127,25 @@ local function createNode(matInfo, controls, w, h, progressBar)
     matInfo.generate(out, controls, onUpdate)
 
     -- update progress
-    progressBar.text = "creating texture node..."
-    progressBar.progress     = -1
+    progressBar.text     = "creating texture node..."
+    progressBar.progress = -1
     octane.gui.dispatchGuiEvents(1)
 
     -- TODO: this is inefficient as hell!
     local buf = {} 
-    for i=1,w do
-        for j=1,h do
-            local c = out:get(i, j)
+    for y=h,1,-1 do
+        for x=1,w do
+            local c = out:get(x, y)
             table.insert(buf, c[1])
-            table.insert(buf, c[2])
-            table.insert(buf, c[3])
-            table.insert(buf, c[4])
         end
     end
 
     -- create an image texture node
-    tex= octane.node.create{ type=octane.NT_TEX_IMAGE, name=matInfo.name }
+    tex= octane.node.create{ type=octane.NT_TEX_FLOATIMAGE, name=matInfo.name }
     -- set up the attributes
     tex:setAttribute(octane.A_BUFFER, buf                       , false)
     tex:setAttribute(octane.A_SIZE  , { w , h }                 , false)
-    tex:setAttribute(octane.A_TYPE  , octane.image.type.LDR_RGBA, false)
+    tex:setAttribute(octane.A_TYPE  , octane.image.type.LDR_MONO, false)
     tex:evaluate()
 
     -- reset the progress bar again
