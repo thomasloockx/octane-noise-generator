@@ -3,6 +3,7 @@
 
 require "noise-generator/perlin"
 require "noise-generator/table2d"
+require "noise-generator/worley"
 
 
 -- you can set this to a bigger value if you have a fast computer
@@ -64,7 +65,7 @@ local MATERIALS_DESCRIPTION =
         {
             { name = "smoothness", value = 0.10, min = 0.01, max = .2, step = 0.01, log = false },
             { name = "period"    , value =   13, min =    1, max = 40, step = 0.1 , log = false },
-        }                        ,
+        },
 
         -- Generates wood rings by mangling the Perlin noise through a sine function.
         generate = function(t2d, controls, progressCallback)
@@ -103,6 +104,53 @@ local MATERIALS_DESCRIPTION =
                         end
                     end,
     }
+    ,
+    {
+        name = "Scales",
+        controls = 
+        {
+            -- TODO
+        },
+
+        -- Generates wood rings by mangling the Perlin noise through a sine function.
+        generate = function(t2d, controls, progressCallback)
+                        -- get the 2d table's dimensions
+                        local w = t2d.width
+                        local h = t2d.height
+                         -- get the centre point of the view rectangle
+                        local cx = controls["x-orig"] + controls["width"] * 0.5 
+                        local cy = controls["y-orig"] + controls["height"] * 0.5
+                        -- get the rectangle bounds in "noise space" based on the controls
+                        local x0 = controls["x-orig"]
+                        local y0 = controls["y-orig"]
+                        local dx = controls["width"] / w 
+                        local dy = controls["height"] / h
+
+                        min = 1000
+                        max = -1000
+
+                        -- for each pixel of the bitmap generate the noise
+                        for ys=1,h do
+                            for xs=1,w do
+                                -- convert from screen space -> "noise space"
+                                local x = x0 + dx * (xs - 1)
+                                local y = y0 + dy * (ys - 1)
+                                local F = worley.gen2d(x, y, 1)
+                                local n = F[1]
+                                if (n < min) then min = n end
+                                if (n > max) then max = n end
+                                -- colour the pixel in grayscale
+                                t2d:set(xs, ys, { n * 255, n * 255, n * 255, 255 })
+                            end
+
+                            -- update on our current progress after we've finished a row
+                            if (progressCallback) then progressCallback(ys / h) end
+                        end
+
+                            print(min, max)
+                    end,
+    }
+
     ,
 }
 

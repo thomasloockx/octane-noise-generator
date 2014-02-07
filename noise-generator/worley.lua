@@ -21,101 +21,112 @@ local poissonCount =
 -- This constant is manipulated to make sure that the mean value of F[0]
 -- is 1.0. This makes an easy natural "scale" size of the cellular features.
 local DENSITY_ADJUSTMENT = 0.398150
--- Just a huge value. 
-local HUGE = 2^32
+-- max unsigned in value on 32-bit machine
+local MAX_INT = 4294967296.0
+-- inverse of above value
+local INV_MAX_INT = 1.0 / 4294967296.0
+-- 32-bit mask, we need this mask to modulo bcoz lua doesn't overflow like C
+local M0 = 0xffffffff
 
--- more efficient modulo 256
+-- maps [1,n] -> [1,256]
 local band   = bit.band
 local map256 = function(x)
     return band(x-1, 255) + 1
 end
 
--- Use our own pseudo-random generator. The one that Worly's using relies
--- on overflowing the C value on 32-bit machines -> nasty!
-local function LGC(seed)
-    return band(1664525 * seed + 1013904223, 2^32-1)
+-- Use our own pseudo-random generator. The one that Worly uses relies
+-- on overflowing the C value on a 32-bit machine.
+-- LCG in range [0, 2^32-1]
+local function LCG(seed)
+    return band(1664525 * seed + 1013904223, M0)
 end
 
-local function addSamples(xi, yi, n, p, F)
+
+-- Calculates the distance of (x, y) to the n-closest feature points
+-- in the current cell (xi, yi).
+--
+--  @param[in]  xi
+--      horizontal cell index
+--  @param[in]  yi
+--      vertical cell index
+--  @param[in]  x
+--      x coordinate of the input point
+--  @param[in[  y
+--      y coordinate of the input point
+--  @param[in]  n
+--      number of distances we're interested in
+--  @param[out] F
+--      distance the closest, 2nd-closets, n-closest feature point
+--      in the current cell
+local function calcDistInCell(xi, yi, x, y, n, F)
     -- Each cube has a random number seed based on the cube's ID number.
     -- The seed might be better if it were a nonlinear hash like Perlin uses
     -- for noise but we do very well with this faster simple one.
     -- Our LCG uses Knuth-approved constants for maximal periods.
     local seed = 702395077 * xi + 915488749 * yi
 
-    -- How many feature points are in this cube?
-    local count = poissonCount[map256(seed)]
+    -- Check many feature points are in this cube?
+    local nbPoints = poissonCount[map256(seed)]
 
-    -- churn the seed with good Knuth LCG
-    seed = LGC(seed)
+    -- Churn the seed.
+    seed = LCG(seed)
 
-    -- generate each feature point, calc distance and insert it into our solution
-    for i=1,count do
-        seed = LGC(seed) -- churn
-
-        -- compute the fractional part of the feature point
-        local fx = (seed + 0.5) * (1.0 / 4294967296.0); 
-        seed = LGC(seed) -- churn
-        local fy = (seed + 0.5) * (1.0 / 4294967296.0); 
-        seed = LGC(seed) -- churn
-        local fz = (seed + 0.5) * (1.0 / 4294967296.0); 
-        seed = LGC(seed) -- churn
+    -- Generate each feature point, calc distance and insert it into our solution
+    for i=1,nbPoints do
+        seed = LCG(seed) -- churn
+        -- compute the fractional part of this feature point
+        local fx = (seed + 0.5) * INV_MAX_INT
+        seed = LCG(seed) -- churn
+        local fy = (seed + 0.5) * INV_MAX_INT
+        seed = LCG(seed) -- churn
 
         -- distance from feature point to sample location
-        local dx = xi + fx - p[1];
-        local dy = yi + fy - p[2];
+        local dx = xi + fx - x;
+        local dy = yi + fy - y;
 
-        -- Euclidian distance, squared
+        -- Euclidian distance to the feature point, squared.
         local d2 = dx * dx + dy * dy
 
-        -- only bother if the point is closer than what we have so far
+        -- Only bother if the point is closer than the furthest we've got so far.
         if (d2 < F[n]) then
-            -- Insert the information into the output arrays if it's close enough.
-            -- We use an insertion sort.  No need for a binary search to find
-            -- the appropriate index.. usually we're dealing with order 2,3,4 so
-            -- we can just go through the list. If you were computing order 50
-            -- (wow!!) you could get a speedup with a binary search 
-            
+            -- Look for the right insertion index.
             local index = n
-            while index > 1 and d2 < F[index] do index = index - 1 end
-
-            --  We insert this new point into slot # <index> and truncate the table
-            table.insert(F, index, d2)
+            while index >= 2 and d2 < F[index-1] do index = index - 1 end
+            F[index] = d2
         end
     end
 end
 
--- Returns the n-shortest distances from p to the n feature points.
--- (F1[p]..Fn[p])
+-- Returns the n-shortest distances from input point p to the feature points.
 --
 -- @param[in]   x0
---      x-coord of the point on the grid
+--      x-coord of the input point
 -- @param[in]   y0
---      y-coord of the point on the grid
--- @param[in]   n
+--      y-coord of the input point
+-- @param[in]   N 
 --      the number of distances to calculate (n)
 -- @return
---      table with the distances to the feature points F[1]..F[n]
+--      table with the distances to the feature points F[1]..F[n] (lenght n)
 local function genWorleyNoise2d(x0, y0, n)
-    -- table with distances
-    local F = {}
     -- Initialize the F values to "huge" so they will be replaced by the
     -- first real sample tests. Note we'll be storing and comparing the
     -- SQUARED distance from the feature points to avoid lots of slow
     -- sqrt() calls. We'll use sqrt() only on the final answer.
-    for i=1,n do F[i] = HUGE end
+    local F = {}
+    for i=1,n do F[i] = MAX_INT end
   
     -- Make our own local copy, multiplying to make mean(F[0])==1.0
-    local pAdj = { DENSITY_ADJUSTMENT * x0, DENSITY_ADJUSTMENT * y0 }
+    local x, y = DENSITY_ADJUSTMENT * x0, DENSITY_ADJUSTMENT * y0
 
-    -- Find the integer cube holding the hit point
-    local pInt = { math.floor(pAdj[1]), math.floor(pAdj[2]) }
+    -- Get the integer fractions to determine in which cell the points are.
+    local xi, yi = math.floor(x), math.floor(y)
 
     -- TODO: use Worley's smarter approach
-    -- Compute the distance to the n closest neighbors in this cell and the surrounding cells.
+    -- Compute the distance to the n closest neighbors in this cell and the 
+    -- surrounding cells.
     for i=-1,1 do
         for j=-1,1 do
-           addSamples(pInt[1]+i, pInt[2]+j, n, pAdj, F)
+           calcDistInCell(xi + i, yi + j, x, y, n, F)
         end
     end
 
