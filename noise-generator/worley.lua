@@ -27,17 +27,8 @@ local MAX_INT = 4294967296.0
 local INV_MAX_INT = 1.0 / 4294967296.0
 -- 32-bit mask, we need this mask to modulo bcoz lua doesn't overflow like C
 local M0 = 0xffffffff
-
--- maps [1,n] -> [1,256]
-local band   = bit.band
-local map256 = function(x)
-    return band(x-1, 255) + 1
-end
-
--- LCG in range [0, 2^32-1] (pseudo-random generator)
-local function LCG(seed)
-    return band(1664525 * seed + 1013904223, M0)
-end
+-- assign bitwise and to a local for performance reasons
+local band = bit.band
 
 -- Calculates the distance of (x, y) to the n-closest feature points
 -- in the current cell (xi, yi).
@@ -55,6 +46,9 @@ end
 --  @param[out] F
 --      distance the closest, 2nd-closets, n-closest feature point
 --      in the current cell
+--
+-- NOTE: Churning of the seed with the LCG from numerical recipes is inlined
+--       for performance reasons.
 local function calcDistInCell(xi, yi, x, y, n, F)
     -- Each cube has a random number seed based on the cube's ID number.
     -- The seed might be better if it were a nonlinear hash like Perlin uses
@@ -63,19 +57,19 @@ local function calcDistInCell(xi, yi, x, y, n, F)
     local seed = 702395077 * xi + 915488749 * yi
 
     -- Check many feature points are in this cube?
-    local nbPoints = poissonCount[map256(seed)]
+    -- NOTE: mapping to [1,256] is inline here for preformance reasons
+    local nbPoints = poissonCount[band(x-1, 255) + 1]
 
-    -- Churn the seed.
-    seed = LCG(seed)
+    seed = band(1664525 * seed + 1013904223, M0) -- churn
 
     -- Generate each feature point, calc distance and insert it into our solution
     for i=1,nbPoints do
-        seed = LCG(seed) -- churn
+        seed = band(1664525 * seed + 1013904223, M0) -- churn
         -- compute the fractional part of this feature point
         local fx = (seed + 0.5) * INV_MAX_INT
-        seed = LCG(seed) -- churn
+        seed = band(1664525 * seed + 1013904223, M0) -- churn
         local fy = (seed + 0.5) * INV_MAX_INT
-        seed = LCG(seed) -- churn
+        seed = band(1664525 * seed + 1013904223, M0) -- churn
 
         -- distance from feature point to sample location
         local dx = xi + fx - x;
