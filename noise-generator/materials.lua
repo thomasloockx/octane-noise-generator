@@ -5,9 +5,10 @@ require "noise-generator/perlin"
 require "noise-generator/table2d"
 require "noise-generator/worley"
 
-
 -- you can set this to a bigger value if you have a fast computer
 local PREVIEW_SIZE = 128
+-- if true , we display the noise generation times
+local PROFILE = true
 
 local MATERIALS_DESCRIPTION =
 {
@@ -126,9 +127,6 @@ local MATERIALS_DESCRIPTION =
                         local dx = controls["width"] / w 
                         local dy = controls["height"] / h
 
-                        min = 1000
-                        max = -1000
-
                         -- for each pixel of the bitmap generate the noise
                         for ys=1,h do
                             for xs=1,w do
@@ -137,8 +135,6 @@ local MATERIALS_DESCRIPTION =
                                 local y = y0 + dy * (ys - 1)
                                 local F = worley.gen2d(x, y, 1)
                                 local n = F[1]
-                                if (n < min) then min = n end
-                                if (n > max) then max = n end
                                 -- colour the pixel in grayscale
                                 t2d:set(xs, ys, { n * 255, n * 255, n * 255, 255 })
                             end
@@ -146,8 +142,6 @@ local MATERIALS_DESCRIPTION =
                             -- update on our current progress after we've finished a row
                             if (progressCallback) then progressCallback(ys / h) end
                         end
-
-                            print(min, max)
                     end,
     }
 
@@ -280,12 +274,21 @@ local function genGui()
 
         -- function to re-generate the noise
         local reGen = function()
+            local startTime = os.clock()
+
             local t2d = table2d.create(info.preview.width, info.preview.height)
             info.generate(t2d, getControls()) 
             for x=1,t2d.width do
                 for y=1,t2d.height do
                     info.preview:setPixel(x, y, t2d:get(x, y))
                 end
+            end
+
+            -- print profiling output
+            local genTime = os.clock() - startTime
+            if (PROFILE) then
+                print(string.format("Generated '%s' in %fs (resolution %dx%d)",
+                      info.name, genTime, t2d.width, t2d.height))
             end
         end
 

@@ -34,13 +34,10 @@ local map256 = function(x)
     return band(x-1, 255) + 1
 end
 
--- Use our own pseudo-random generator. The one that Worly uses relies
--- on overflowing the C value on a 32-bit machine.
--- LCG in range [0, 2^32-1]
+-- LCG in range [0, 2^32-1] (pseudo-random generator)
 local function LCG(seed)
     return band(1664525 * seed + 1013904223, M0)
 end
-
 
 -- Calculates the distance of (x, y) to the n-closest feature points
 -- in the current cell (xi, yi).
@@ -118,22 +115,33 @@ local function genWorleyNoise2d(x0, y0, n)
     -- Make our own local copy, multiplying to make mean(F[0])==1.0
     local x, y = DENSITY_ADJUSTMENT * x0, DENSITY_ADJUSTMENT * y0
 
-    -- Get the integer fractions to determine in which cell the points are.
-    local xi, yi = math.floor(x), math.floor(y)
+    -- Get the integral and fractional part of the x & y coords
+    local xi, xf = math.modf(x)
+    local yi, yf = math.modf(y)
 
-    -- TODO: use Worley's smarter approach
-    -- Compute the distance to the n closest neighbors in this cell and the 
-    -- surrounding cells.
-    for i=-1,1 do
-        for j=-1,1 do
-           calcDistInCell(xi + i, yi + j, x, y, n, F)
-        end
-    end
+    -- Smartness: Don't consider neighboring cells where the distance to the next cell
+    -- from (x,y) is further away than the distance to the furthest feature point.
+    local dxl2 = (x - xi) * (x - xi) -- x-distance squared to left cells
+    local dxr2 = (1 - xf) * (1 - xf) -- x-distance squared to right cells
+    local dyb2 = (y - yi) * (y - yi) -- y-distance squared to bottom cells
+    local dyt2 = (1 - yf) * (1 - yf) -- y-distance squared to top cells
 
-  -- We're done! Convert everything to right size scale
-  for i,f in ipairs(F) do v = math.sqrt(f) * (1.0 / DENSITY_ADJUSTMENT) end
+    -- centre cell
+    calcDistInCell(xi, yi, x, y, n , F)
+    -- 4 facing neighbors cells
+    if dxl2 < F[n] then calcDistInCell(xi-1, yi  , x, y, n, F) end -- left
+    if dyb2 < F[n] then calcDistInCell(xi  , yi-1, x, y, n, F) end -- bottom
+    if dxr2 < F[n] then calcDistInCell(xi+1, yi  , x, y, n, F) end -- right
+    if dyt2 < F[n] then calcDistInCell(xi  , yi+1, x, y, n, F) end -- top
+    -- 4 corner cells
+    if dxl2 + dyb2 < F[n] then calcDistInCell(xi-1, yi-1, x, y, n, F) end -- bottom-left
+    if dxl2 + dyt2 < F[n] then calcDistInCell(xi-1, yi+1, x, y, n, F) end -- top-left
+    if dxr2 + dyb2 < F[n] then calcDistInCell(xi+1, yi-1, x, y, n, F) end -- bottom-right
+    if dxr2 + dyt2 < F[n] then calcDistInCell(xi+1, yi+1, x, y, n, F) end -- top-right
 
-  return F
+    -- convert everything to the right size scale
+    for i,f in ipairs(F) do v = math.sqrt(f) * (1.0 / DENSITY_ADJUSTMENT) end
+    return F
 end
 
 worley = 
