@@ -131,10 +131,10 @@ local MATERIALS_DESCRIPTION =
                         for ys=1,h do
                             for xs=1,w do
                                 -- convert from screen space -> "noise space"
-                                local x = x0 + dx * (xs - 1)
-                                local y = y0 + dy * (ys - 1)
-                                local F = worley.gen2d(x, y, 1)
-                                local n = F[1]
+                                local x      = x0 + dx * (xs - 1)
+                                local y      = y0 + dy * (ys - 1)
+                                local F, IDs = worley.gen2d(x, y, 4)
+                                local n      = F[1] -- IDs[1]
                                 -- colour the pixel in grayscale
                                 t2d:set(xs, ys, { n * 255, n * 255, n * 255, 255 })
                             end
