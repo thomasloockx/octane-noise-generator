@@ -6,7 +6,7 @@ require "noise-generator/table2d"
 require "noise-generator/worley"
 
 -- you can set this to a bigger value if you have a fast computer
-local PREVIEW_SIZE = 128
+local PREVIEW_SIZE = 128 
 -- if true , we display the noise generation times
 local PROFILE = true
 
@@ -18,8 +18,8 @@ local MATERIALS_DESCRIPTION =
         -- Name of the generated material, shown in the material tab.
         name = "Perlin Noise",
 
-        -- Control parameters for the materials. All other materials will have their own params
-        -- and on top will inherit these Perlin control params as extra.
+        -- Control parameters for the materials. For each element of this list,
+        -- a label and a slider is generated.
         controls = 
         {
             { name = "x-orig", value = 0 , min = 0    , max = 256 , step = 0.1  , log = false },
@@ -63,9 +63,13 @@ local MATERIALS_DESCRIPTION =
         name = "Wood Rings",
 
         controls = 
-        {
-            { name = "smoothness", value = 0.10, min = 0.01, max = .2, step = 0.01, log = false },
-            { name = "period"    , value =   13, min =    1, max = 40, step = 0.1 , log = false },
+        {   
+            { name = "x-orig"    , value = 0   , min = 0    , max = 256 , step = 0.1  , log = false },
+            { name = "y-orig"    , value = 0   , min = 0    , max = 256 , step = 0.1  , log = false },
+            { name = "width"     , value = 10  , min = 0.001, max = 1000, step = 0.001, log = true  },
+            { name = "height"    , value = 10  , min = 0.001, max = 1000, step = 0.001, log = true  },
+            { name = "smoothness", value = 0.10, min = 0.01 , max = .2  , step = 0.01 , log = false },
+            { name = "period"    , value =   13, min =    1 , max = 40  , step = 0.1  , log = false },
         },
 
         -- Generates wood rings by mangling the Perlin noise through a sine function.
@@ -107,32 +111,28 @@ local MATERIALS_DESCRIPTION =
     }
     ,
     {
-        name = "Scales",
+        name = "Cellular Noise",
         controls = 
         {
-            -- TODO
+            { name = "width" , value = 10, min = 1, max = 100, step = 0.1, log = true  },
+            { name = "height", value = 10, min = 1, max = 100, step = 0.1, log = true  },
         },
 
-        -- Generates wood rings by mangling the Perlin noise through a sine function.
         generate = function(t2d, controls, progressCallback)
                         -- get the 2d table's dimensions
-                        local w = t2d.width
-                        local h = t2d.height
-                         -- get the centre point of the view rectangle
-                        local cx = controls["x-orig"] + controls["width"] * 0.5 
-                        local cy = controls["y-orig"] + controls["height"] * 0.5
-                        -- get the rectangle bounds in "noise space" based on the controls
-                        local x0 = controls["x-orig"]
-                        local y0 = controls["y-orig"]
-                        local dx = controls["width"] / w 
+                        local w  = t2d.width
+                        local h  = t2d.height
+                        local dx = controls["width"]  / w
                         local dy = controls["height"] / h
 
                         -- for each pixel of the bitmap generate the noise
                         for ys=1,h do
                             for xs=1,w do
                                 -- convert from screen space -> "noise space"
-                                local x      = x0 + dx * (xs - 1)
-                                local y      = y0 + dy * (ys - 1)
+                                local x      = dx * (xs - 1)
+                                local y      = dy * (ys - 1)
+                                -- TODO: cellular noise gives some serious artifacts when the
+                                -- order is < 4
                                 local F, IDs = worley.gen2d(x, y, 4)
                                 local n      = F[1] -- IDs[1]
                                 -- colour the pixel in grayscale
@@ -144,7 +144,6 @@ local MATERIALS_DESCRIPTION =
                         end
                     end,
     }
-
     ,
 }
 
@@ -213,19 +212,6 @@ local function genGui()
     for i, info in ipairs(MATERIALS_DESCRIPTION) do
         table.insert(captions, info.name)
 
-        -- all materials are based on perlin noise so they inherit the perlin
-        -- noise control parameters
-        local controls = {}
-        if i > 1 then
-            for ci, cvals in ipairs(MATERIALS_DESCRIPTION[1].controls) do
-                table.insert(controls, cvals)
-            end
-        end
-        -- get the controls of the material itself
-        for ci , cvals in ipairs(info.controls) do
-            table.insert(controls, cvals)
-        end
-
         -- bitmap to preview the noise
         info.preview = octane.gui.create
         {
@@ -237,7 +223,7 @@ local function genGui()
         -- for each control parameter of the material, we generate a slider and
         -- a label with a short name for the control parameter
         local childComponents = {}
-        for ci , cvals in pairs(controls) do
+        for ci , cvals in pairs(info.controls) do
             local lbl = octane.gui.create
             { 
                 type   = octane.gui.componentType.LABEL,

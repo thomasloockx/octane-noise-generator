@@ -87,15 +87,20 @@ local function calcDistInCell(xi, yi, x, y, n, F, IDs)
         -- Only bother if the point is closer than the furthest we've got so far.
         if (d2 < F[n]) then
             -- Look for the right insertion index.
-            local index = n
-            while index >= 2 and d2 < F[index-1] do index = index - 1 end
-            -- Bump up everything behind index.
-            for i= n,index+1 do
+            local ix = 1
+            for i=1,n do
+                if d2 < F[i] then 
+                    ix = i
+                    break
+                end
+            end
+            -- bump up everyhing from ix to the end
+            for i=n,ix+1 do
                 F[i]   = F[i-1]
                 IDs[i] = F[i-1]
             end
-            F[index]   = d2
-            IDs[index] = id
+            F[ix]   = d2
+            IDs[ix] = id
         end
     end
 end
