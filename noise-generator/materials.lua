@@ -131,9 +131,7 @@ local MATERIALS_DESCRIPTION =
                                 -- convert from screen space -> "noise space"
                                 local x      = dx * (xs - 1)
                                 local y      = dy * (ys - 1)
-                                -- TODO: cellular noise gives some serious artifacts when the
-                                -- order is < 4
-                                local F, IDs = worley.gen2d(x, y, 4)
+                                local F, IDs = worley.gen2d(x, y, 1)
                                 local n      = F[1] -- IDs[1]
                                 -- colour the pixel in grayscale
                                 t2d:set(xs, ys, { n * 255, n * 255, n * 255, 255 })
