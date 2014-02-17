@@ -16,7 +16,7 @@ local window = octane.gui.create
     width    = gui.width,
     height   = gui.height,
     children = { gui },
-    text     = "Procedural Texture Generator",
+    text     = "Noise Generator",
 }
 
 window:showWindow()
