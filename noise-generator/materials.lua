@@ -1,5 +1,5 @@
 ------------------------------------------------------------------------------
--- Materials based on Perlin Noise. Add your own materials here.
+-- Materials based on Perlin Noise. ADD YOUR OWN MATERIALS IN THIS FILE
 
 require "noise-generator/perlin"
 require "noise-generator/table2d"
@@ -8,8 +8,10 @@ require "noise-generator/worley"
 -- you can set this to a bigger value if you have a fast computer
 local PREVIEW_SIZE = 128 
 -- if true , we display the noise generation times
-local PROFILE = true
+local PROFILE = false 
 
+-- Table with an entry for each generated material. When you'd like to add
+-- a new material, add a new entry in this table and a new tab is generated.
 local MATERIALS_DESCRIPTION =
 {
     -- Perlin noise is the first one in this list. It's the "base" for all others
@@ -114,8 +116,8 @@ local MATERIALS_DESCRIPTION =
         name = "Cellular Noise",
         controls = 
         {
-            { name = "width" , value = 10, min = 1, max = 100, step = 0.1, log = true  },
-            { name = "height", value = 10, min = 1, max = 100, step = 0.1, log = true  },
+            { name = "width" , value = 20, min = 1, max = 100, step = 0.1, log = true  },
+            { name = "height", value = 20, min = 1, max = 100, step = 0.1, log = true  },
         },
 
         generate = function(t2d, controls, progressCallback)
@@ -143,6 +145,9 @@ local MATERIALS_DESCRIPTION =
                     end,
     }
     ,
+    --
+    -- YOUR AWESOME MATERIAL GOES HERE
+    --
 }
 
 
