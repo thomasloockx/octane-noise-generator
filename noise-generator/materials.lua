@@ -52,7 +52,7 @@ local MATERIALS_DESCRIPTION =
                                 -- generate the noise
                                 local n = perlin.gen2d(x, y) 
                                 -- colour the value in grayscale
-                                t2d:set(xs, ys, { n * 255, n * 255, n * 255, 255 })
+                                t2d:set(xs, ys, n * 255)
                             end
 
                             -- update on our current progress after we've finished a row
@@ -103,7 +103,7 @@ local MATERIALS_DESCRIPTION =
                                 -- much rings are generated.
                                 local n = math.sin(controls["period"] * dd) + 1
                                 -- colour the pixel in grayscale
-                                t2d:set(xs, ys, { n * 255, n * 255, n * 255, 255 })
+                                t2d:set(xs, ys, n * 255)
                             end
 
                             -- update on our current progress after we've finished a row
@@ -136,7 +136,7 @@ local MATERIALS_DESCRIPTION =
                                 local F, IDs = worley.gen2d(x, y, 1)
                                 local n      = F[1] -- IDs[1]
                                 -- colour the pixel in grayscale
-                                t2d:set(xs, ys, { n * 255, n * 255, n * 255, 255 })
+                                t2d:set(xs, ys, n * 255)
                             end
 
                             -- update on our current progress after we've finished a row
@@ -179,8 +179,8 @@ local function createNode(matInfo, controls, w, h, progressBar)
     local buf = {} 
     for y=h,1,-1 do
         for x=1,w do
-            local c = out:get(x, y)
-            table.insert(buf, c[1])
+            local noiseValue = out:get(x, y)
+            table.insert(buf, noiseValue)
         end
     end
 
@@ -215,7 +215,7 @@ local function genGui()
     for i, info in ipairs(MATERIALS_DESCRIPTION) do
         table.insert(captions, info.name)
 
-        -- bitmap to preview the noise
+        -- bitmap that wraps an image to preview the noise
         info.preview = octane.gui.create
         {
             type   = octane.gui.componentType.BITMAP,
@@ -265,13 +265,24 @@ local function genGui()
         local reGen = function()
             local startTime = os.clock()
 
+            -- create a new (grayscale) image to hold the preview
+            local previewImage = octane.image.create
+            {
+                type = octane.image.type.LDR_MONO,
+                size = { PREVIEW_SIZE, PREVIEW_SIZE }
+            }
+
+            -- generate the noise and copy it into the bitmap
             local t2d = table2d.create(info.preview.width, info.preview.height)
             info.generate(t2d, getControls()) 
             for x=1,t2d.width do
                 for y=1,t2d.height do
-                    info.preview:setPixel(x, y, t2d:get(x, y))
+                    previewImage:setPixel(x, y, t2d:get(x, y))
                 end
             end
+
+            -- update the bitmap image
+            info.preview.image = previewImage
 
             -- print profiling output
             local genTime = os.clock() - startTime
