@@ -10,3 +10,9 @@ The supported noise patterns are:
 * Cellular noise (a.k.a. Voronoi noise).
 
 To install, unzip the archive into your OctaneRender Lua scripting directory (The directory configured via File > Preferences > Application Tab > Script Directory). You should have a file noise-generator.lua and a directory noise-generator in this directory.
+
+Here are some of examples of the noise used in Octane materials:
+
+![alt text](https://github.com/thomasloockx/octane-noise-generator/blob/master/example-images/perlin.png "Perlin noise")
+![alt text](https://github.com/thomasloockx/octane-noise-generator/blob/master/example-images/wood-rings.png "Wood rings noise")
+![alt text](https://github.com/thomasloockx/octane-noise-generator/blob/master/example-images/chips.png "Cellular noise")
